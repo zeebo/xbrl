@@ -4,21 +4,74 @@ import xml.etree.ElementTree as etree
 import re
 import sys
 
-def parse_map(file):
-    events = "start", "start-ns", "end-ns"
+def parse_xmlns(file):
+    events = "start", "start-ns"
     root = None
     ns_map = []
     for event, elem in etree.iterparse(file, events):
         if event == "start-ns":
-            x, y = elem[0], elem[1].decode()
-            ns_map.append((x, y))
-        elif event == "end-ns":
-            ns_map.pop()
+            ns_map.append(elem)
         elif event == "start":
             if root is None:
                 root = elem
-            elem.ns_map = dict(ns_map)
+            for prefix, uri in ns_map:
+                elem.set("xmlns:" + prefix, uri)
+            ns_map = []
     return etree.ElementTree(root)
+
+def fixup_element_prefixes(elem, uri_map, memo):
+    def fixup(name):
+        try:
+            return memo[name]
+        except KeyError:
+            if name[0] != "{":
+                return
+            uri, tag = name[1:].split("}")
+            if uri in uri_map:
+                new_name = uri_map[uri] + ":" + tag
+                memo[name] = new_name
+                return new_name
+    # fix element name
+    name = fixup(elem.tag)
+    if name:
+        elem.tag = name
+    # fix attribute names
+    for key, value in elem.items():
+        name = fixup(key)
+        if name:
+            elem.set(name, value)
+            del elem.attrib[key]
+
+def fixup_xmlns(elem, maps=None):
+    if maps is None:
+        maps = [{}]
+
+    # check for local overrides
+    xmlns = {}
+    for key, value in elem.items():
+        if key[:6] == "xmlns:":
+            xmlns[value] = key[6:]
+    if xmlns:
+        uri_map = maps[-1].copy()
+        uri_map.update(xmlns)
+    else:
+        uri_map = maps[-1]
+
+    # fixup this element
+    fixup_element_prefixes(elem, uri_map, {})
+
+    # process elements
+    maps.append(uri_map)
+    for elem in elem:
+        fixup_xmlns(elem, maps)
+    maps.pop()
+
+
+def write_xmlns(elem, file):
+    if not etree.iselement(elem):
+        elem = elem.getroot()
+    fixup_xmlns(elem)
+    etree.ElementTree(elem).write(file)
 
 def get_keys(dic, value):
   keys = [k for k, v in dic.items() if v == value]
@@ -36,7 +89,7 @@ def get_tag(child):
     r'^'      #beginning of string
     r'\{'     #match a single {
     r'(.*?)'  #grab the namespace url
-    r'\}'     #match a sing }
+    r'\}'     #match a single }
     r'(.*?)'  #match the attribute name
     r'$'      #end of string
   )
@@ -64,11 +117,10 @@ def parse_directory(directory):
   xmls = {}
   for fname in glob("isdr/*"):
     with open(fname) as fobj:
-      xmls[fname] = parse_map(fobj)
+      xmls[fname] = parse_xmlns(fobj)
   
   return xmls
 
 xmls = parse_directory('isdr/*')
-etree.QName("http://www.xbrl.org/2003/linkbase", tag='lol')
 
-list(xmls.values())[0].write(sys.stdout)
+write_xmlns(list(xmls.values())[0], sys.stdout)
