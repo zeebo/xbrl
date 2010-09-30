@@ -123,4 +123,43 @@ def parse_directory(directory):
 
 xmls = parse_directory('isdr/*')
 
-write_xmlns(list(xmls.values())[0], sys.stdout)
+#write_xmlns(list(xmls.values())[0], sys.stdout)
+#print xmls.keys()
+write_xmlns(xmls['isdr\\isdr-20100630.xml'], sys.stdout)
+
+class Sheet(object):
+    pass
+
+class SchemaFile(Sheet):
+    pass
+
+class InstanceFile(Sheet):
+    pass
+
+class CalculationFile(Sheet):
+    pass
+
+class LabelFile(Sheet):
+    pass
+
+class PresentationFile(Sheet):
+    pass
+
+
+#Collection of facts and definitions that are all related and must be produced as xml
+#interesting.
+
+#<us-gaap:CashAndCashEquivalentsAtCarryingValue contextRef="i_2009-12-31" decimals="0" unitRef="USD">146043</us-gaap:CashAndCashEquivalentsAtCarryingValue>
+fact = {
+    'type': 'CashAndCashEquivalentsAtCarryingValue',
+    'namespace': 'us-gaap',
+    'context': 'i_2009-12-31', #or possibly the context object (probably not)
+    'decimals': '0',
+    'unitRef': 'USD',
+    'value': '146043',
+}
+
+#heres an idea. take all the data in the test, and serialize it into some internal representation (dictionaries maybe)
+#then reserialize it back out. check that the xml's are equivilant (mostly? define some metric)
+#ok so find a way to convert elements into dictionaries, and back
+#might not be too hard.
