@@ -84,6 +84,7 @@ def get_keys(dic, value):
 def get_tag(child):
   if not hasattr(child, 'ns_map'):
     return child.tag
+  print child.ns_map
   
   pattern = re.compile(
     r'^'      #beginning of string
@@ -113,11 +114,20 @@ def tree_print(element, indent=0):
     if len(child) > 0:
       tree_print(child, indent+1)
 
+def split_tag(tag):
+    if tag.count(':') != 1:
+        raise ValueError('Tag must contain a single namespace dawg')
+    return tag.split(':')
+
+def dict_tag(tag):
+    return dict(zip(['ns','type'], split_tag(tag)))
+
 def parse_directory(directory):
   xmls = {}
   for fname in glob("isdr/*"):
     with open(fname) as fobj:
       xmls[fname] = parse_xmlns(fobj)
+      fixup_xmlns(xmls[fname].getroot())
   
   return xmls
 
@@ -125,26 +135,7 @@ xmls = parse_directory('isdr/*')
 
 #write_xmlns(list(xmls.values())[0], sys.stdout)
 #print xmls.keys()
-write_xmlns(xmls['isdr\\isdr-20100630.xml'], sys.stdout)
-
-class Sheet(object):
-    pass
-
-class SchemaFile(Sheet):
-    pass
-
-class InstanceFile(Sheet):
-    pass
-
-class CalculationFile(Sheet):
-    pass
-
-class LabelFile(Sheet):
-    pass
-
-class PresentationFile(Sheet):
-    pass
-
+#write_xmlns(xmls['isdr\\isdr-20100630.xml'], sys.stdout)
 
 #Collection of facts and definitions that are all related and must be produced as xml
 #interesting.
@@ -163,3 +154,20 @@ fact = {
 #then reserialize it back out. check that the xml's are equivilant (mostly? define some metric)
 #ok so find a way to convert elements into dictionaries, and back
 #might not be too hard.
+
+#lets figure out what data can be inferred. what's the minimal data set?
+#obviously the facts. and the contexts. let's work off that.
+
+#So we'll have a dict of facts, each as a dictionary
+#facts = {
+#    'type':{},
+#}
+
+#contexts = {
+#    'name':{},
+#}
+
+#lets see if we can get that parsed out
+#so load up the parsed data xml
+for x in xmls['isdr\\isdr-20100630.xml'].getroot():
+    print dict_tag(x.tag)['ns']
