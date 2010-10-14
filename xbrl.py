@@ -131,43 +131,50 @@ def parse_directory(directory):
   
   return xmls
 
-xmls = parse_directory('isdr/*')
+def grab_child(entity, name):
+    for child in entity:
+        if dict_tag(child.tag)['type'] == name:
+            return child
 
-#write_xmlns(list(xmls.values())[0], sys.stdout)
-#print xmls.keys()
-#write_xmlns(xmls['isdr\\isdr-20100630.xml'], sys.stdout)
+class ImplementationError(Exception): pass
+class Parser(object):
+    def parse(self, entity):
+        edict = dict_tag(entity.tag)
+        try:
+            return getattr(self, 'parse_%s' % edict['type'])(entity)
+        except AttributeError:
+            raise AttributeError('Parser for type %s not found' % edict['type'])
+        except TypeError:
+            raise ImplementationError('Parser implemented incorrectly')
+    
+    def parse_context(self, entity):
+        parsed = {'type': 'context', 'id': entity.attrib['id']}
 
-#Collection of facts and definitions that are all related and must be produced as xml
-#interesting.
+        identifier_parent = grab_child(entity, 'entity')
+        #Just grab the first child out of identifier using a singleton tuple
+        identifier, = identifier_parent
+        parsed['identifier'] = {'scheme': identifier.attrib['scheme'], 'value': identifier.text}
 
-#<us-gaap:CashAndCashEquivalentsAtCarryingValue contextRef="i_2009-12-31" decimals="0" unitRef="USD">146043</us-gaap:CashAndCashEquivalentsAtCarryingValue>
-fact = {
-    'type': 'CashAndCashEquivalentsAtCarryingValue',
-    'namespace': 'us-gaap',
-    'context': 'i_2009-12-31', #or possibly the context object (probably not)
-    'decimals': '0',
-    'unitRef': 'USD',
-    'value': '146043',
-}
+        period = grab_child(entity, 'period')
+        #determine the period type
+        if len(period) == 1: #instant type
+            instant, = period
+            parsed['period'] = {'type':'instant', 'value':instant.text}
+        elif len(period) == 2: #duration
+            start, end = period
+            parsed['period'] = {'type':'duration', 'value':(start.text, end.text)}
+        
+        return parsed
+        
+def parse(entity, p = Parser()):
+    return p.parse(entity)
 
-#heres an idea. take all the data in the test, and serialize it into some internal representation (dictionaries maybe)
-#then reserialize it back out. check that the xml's are equivilant (mostly? define some metric)
-#ok so find a way to convert elements into dictionaries, and back
-#might not be too hard.
-
-#lets figure out what data can be inferred. what's the minimal data set?
-#obviously the facts. and the contexts. let's work off that.
-
-#So we'll have a dict of facts, each as a dictionary
-#facts = {
-#    'type':{},
-#}
-
-#contexts = {
-#    'name':{},
-#}
-
-#lets see if we can get that parsed out
-#so load up the parsed data xml
-for x in xmls['isdr\\isdr-20100630.xml'].getroot():
-    print dict_tag(x.tag)['ns']
+if __name__ == '__main__':
+    xmls = parse_directory('isdr/*')
+    
+    for x in xmls['isdr\\isdr-20100630.xml'].getroot():
+        try:
+            parsed_data = parse(x)
+            print parsed_data
+        except AttributeError:
+            pass
