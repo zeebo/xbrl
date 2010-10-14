@@ -165,7 +165,22 @@ class Parser(object):
             parsed['period'] = {'type':'duration', 'value':(start.text, end.text)}
         
         return parsed
-        
+
+class Builder(object):
+    def build(self, edict):
+        try:
+            return getattr(self, 'build_%s' % edict['type'])(edict)
+        except KeyError:
+            raise TypeError('Malformed build dictionary')
+        except AttributeError:
+            raise AttributeError('Builder for type %s not found' % edict['type'])
+        except TypeError:
+            raise ImplementationError('Builder implemented incorrectly')
+    
+    def build_context(self, edict):
+        pass
+
+
 def parse(entity, p = Parser()):
     return p.parse(entity)
 
