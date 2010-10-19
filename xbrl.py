@@ -35,6 +35,10 @@ def fixup_element_prefixes(elem, uri_map, memo):
     name = fixup(elem.tag)
     if name:
         elem.tag = name
+    
+    #Store the map for later
+    elem.uri_map = uri_map
+
     # fix attribute names
     for key, value in elem.items():
         name = fixup(key)
@@ -148,21 +152,34 @@ class Parser(object):
             raise ImplementationError('Parser implemented incorrectly')
     
     def parse_context(self, entity):
-        parsed = {'type': 'context', 'id': entity.attrib['id']}
+        parsed = {
+                'type': 'context',
+                'id': entity.attrib['id'],
+                'nsmap': entity.uri_map
+            }
 
         identifier_parent = grab_child(entity, 'entity')
         #Just grab the first child out of identifier using a singleton tuple
         identifier, = identifier_parent
-        parsed['identifier'] = {'scheme': identifier.attrib['scheme'], 'value': identifier.text}
+        parsed['identifier'] = {
+                'scheme': identifier.attrib['scheme'],
+                'value': identifier.text,
+            }
 
         period = grab_child(entity, 'period')
         #determine the period type
         if len(period) == 1: #instant type
             instant, = period
-            parsed['period'] = {'type':'instant', 'value':instant.text}
+            parsed['period'] = {
+                    'type': 'instant',
+                    'value': instant.text
+                }
         elif len(period) == 2: #duration
             start, end = period
-            parsed['period'] = {'type':'duration', 'value':(start.text, end.text)}
+            parsed['period'] = {
+                    'type': 'duration',
+                    'value': (start.text, end.text)
+                }
         
         return parsed
 
@@ -193,3 +210,12 @@ if __name__ == '__main__':
             print parsed_data
         except AttributeError:
             pass
+
+    root = etree.Element('context')
+    root.set('id','test')
+    identifier = etree.SubElement(root, 'identifier')
+    identifier.set('scheme','cik')
+    identifier.text = '00324582345'
+    period = etree.SubElement(root, 'period')
+    period.text = 'LOL'
+    etree.ElementTree(root).write(sys.stdout)
