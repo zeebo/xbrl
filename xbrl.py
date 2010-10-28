@@ -155,7 +155,6 @@ class Parser(object):
         parsed = {
                 'type': 'context',
                 'id': entity.attrib['id'],
-                'nsmap': entity.uri_map
             }
 
         identifier_parent = grab_child(entity, 'entity')
@@ -195,11 +194,29 @@ class Builder(object):
             raise ImplementationError('Builder implemented incorrectly')
     
     def build_context(self, edict):
-        pass
+        root = etree.Element('xbrli:context')
+        root.set('id', edict['id'])
+        entity = etree.SubElement(root, 'xbrli:entity')
+        identifier = etree.SubElement(entity, 'xbrli:identifier')
+        identifier.set('scheme',edict['identifier']['scheme'])
+        identifier.text = edict['identifier']['value']
+        period = etree.SubElement(root, 'xbrli:period')
+        if edict['period']['type'] == 'instant':
+            instant = etree.SubElement(period, 'xbrli:instant')
+            instant.text = edict['period']['value']
+        elif edict['period']['type'] == 'duration':
+            start = etree.SubElement(period, 'xbrli:startDate')
+            start.text = edict['period']['value'][0]
+            end = etree.SubElement(period, 'xbrli:endDate')
+            end.text = edict['period']['value'][1]
+        return root
 
 
 def parse(entity, p = Parser()):
     return p.parse(entity)
+
+def build(entity, b = Builder()):
+    return b.build(entity)
 
 if __name__ == '__main__':
     xmls = parse_directory('isdr/*')
@@ -207,15 +224,10 @@ if __name__ == '__main__':
     for x in xmls['isdr\\isdr-20100630.xml'].getroot():
         try:
             parsed_data = parse(x)
-            print parsed_data
+            print etree.ElementTree(x).write(sys.stdout)
+            print etree.ElementTree(build(parsed_data)).write(sys.stdout)
         except AttributeError:
             pass
+    
 
-    root = etree.Element('context')
-    root.set('id','test')
-    identifier = etree.SubElement(root, 'identifier')
-    identifier.set('scheme','cik')
-    identifier.text = '00324582345'
-    period = etree.SubElement(root, 'period')
-    period.text = 'LOL'
-    etree.ElementTree(root).write(sys.stdout)
+    #etree.ElementTree(root).write(sys.stdout)
