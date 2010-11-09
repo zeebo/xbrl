@@ -3,7 +3,7 @@ from pprint import pprint
 import xml.etree.ElementTree as etree
 import re
 import sys
-import StringIO
+import cStringIO
 
 def parse_xmlns(file):
     events = "start", "start-ns"
@@ -148,9 +148,42 @@ class Parser(object):
         try:
             return getattr(self, 'parse_%s' % edict['type'])(entity)
         except AttributeError:
-            raise AttributeError('Parser for type %s not found' % edict['type'])
+            pass
         except TypeError:
             raise ImplementationError('Parser implemented incorrectly')
+        
+        return self.parse_ns(entity, edict['ns'])
+    
+    def parse_ns(self, entity, ns):
+        tags = dict_tag(entity.tag)
+        parsed = {
+            'type': 'general',
+            'element_type': tags['type'],
+            'namespace': ns,
+            'text': entity.text,
+        }
+        for attrib in entity.attrib:
+            if attrib in parsed:
+                raise ImplementationError('Unexpected edge case')
+            
+            parsed[attrib] = entity.attrib[attrib]
+        return parsed
+
+    def parse_schemaRef(self, entity):
+        parsed = {
+            'type': 'schemaRef',
+            'link_type': entity.attrib['xlink:type'],
+            'href': entity.attrib['xlink:href'],
+        }
+        return parsed
+    
+    def parse_unit(self, entity):
+        parsed = {
+            'type': 'unit',
+            'id': entity.attrib['id'],
+            'measure': grab_child(entity, 'measure').text
+        }
+        return parsed
     
     def parse_context(self, entity):
         parsed = {
@@ -185,14 +218,38 @@ class Parser(object):
 
 class Builder(object):
     def build(self, edict):
+        if type(edict) != dict:
+            raise TypeError('Malformed build dictionary')
         try:
             return getattr(self, 'build_%s' % edict['type'])(edict)
         except KeyError:
             raise TypeError('Malformed build dictionary')
         except AttributeError:
             raise AttributeError('Builder for type %s not found' % edict['type'])
-        except TypeError:
+        except TypeError,e:
             raise ImplementationError('Builder implemented incorrectly')
+    
+    def build_general(self, edict):
+        exclude = ['type', 'element_type', 'namespace', 'text']
+        root = etree.Element('%s:%s' % (edict['namespace'], edict['element_type']))
+        for attrib in edict:
+            if attrib not in exclude:
+                root.set(attrib, edict[attrib])
+        root.text = edict['text']
+        return root
+    
+    def build_unit(self, edict):
+        root = etree.Element('xbrli:unit')
+        root.set('id', edict['id'])
+        measure = etree.SubElement(root, 'xbrli:measure')
+        measure.text = edict['measure']
+        return root
+    
+    def build_schemaRef(self, edict):
+        root = etree.Element('link:schemaRef')
+        root.set('xlink:type', edict['link_type'])
+        root.set('xlink:href', edict['href'])
+        return root
     
     def build_context(self, edict):
         root = etree.Element('xbrli:context')
@@ -218,9 +275,8 @@ def parse(entity, p = Parser()):
 def build(entity, b = Builder()):
     return b.build(entity)
 
-
 def as_string(element):
-    buf = StringIO.StringIO()
+    buf = cStringIO.StringIO()
     etree.ElementTree(element).write(buf)
     return buf.getvalue()
 
@@ -233,7 +289,8 @@ if __name__ == '__main__':
     for x in xmls['isdr\\isdr-20100630.xml'].getroot():
         try:
             parsed_data = parse(x)
-            print one_line(as_string(x))
-            print one_line(as_string(build(parsed_data)))
+            if one_line(as_string(x)) != one_line(as_string(build(parsed_data))):
+                print 'problem on %s' % x
         except AttributeError:
-            pass
+            print 'INVALID:', x
+    print 'yess'

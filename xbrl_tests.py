@@ -1,8 +1,5 @@
-import random
 import unittest
 import xbrl
-import StringIO
-import xml.etree.ElementTree as etree
 
 class TestParser(unittest.TestCase):
 	def setUp(self):
@@ -37,8 +34,7 @@ class TestParser(unittest.TestCase):
 		for entity in self.xmls['isdr']['isdr\\isdr-20100630.xml'].getroot():
 			try:
 				parsed_data = xbrl.parse(entity)
-				if parsed_data['type'] == 'context':
-					entities.append( (entity, xbrl.build(parsed_data)) )
+				entities.append( (entity, xbrl.build(parsed_data)) )
 			except AttributeError:
 				pass
 		
