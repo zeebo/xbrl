@@ -35,7 +35,7 @@ def fixup_element_prefixes(elem, uri_map, memo):
     # fix element name
     name = fixup(elem.tag)
     if name:
-        elem.tag = name
+        elem.tag = name.lstrip(':')
     
     #Store the map for later
     elem.uri_map = uri_map
@@ -121,6 +121,8 @@ def tree_print(element, indent=0):
 
 def split_tag(tag):
     if tag.count(':') != 1:
+        if tag.count(':') == 0:
+            return ('', tag)
         raise ValueError('Tag must contain a single namespace dawg')
     return tag.split(':')
 
@@ -155,6 +157,11 @@ class Parser(object):
         return self.parse_ns(entity, edict['ns'])
     
     def parse_ns(self, entity, ns):
+        good_ns = ['us-gaap', 'dei']
+
+        if ns not in good_ns:
+            raise AttributeError('Unable to parse %s' % entity)
+        
         tags = dict_tag(entity.tag)
         parsed = {
             'type': 'general',
@@ -286,11 +293,12 @@ def one_line(lines):
 if __name__ == '__main__':
     xmls = parse_directory('isdr/*')
     
-    for x in xmls['isdr\\isdr-20100630.xml'].getroot():
-        try:
-            parsed_data = parse(x)
-            if one_line(as_string(x)) != one_line(as_string(build(parsed_data))):
-                print 'problem on %s' % x
-        except AttributeError:
-            print 'INVALID:', x
-    print 'yess'
+    for f in xmls:
+        for x in xmls[f].getroot():
+            #for x in xmls['isdr\\isdr-20100630.xml'].getroot():
+            try:
+                parsed_data = parse(x)
+                if one_line(as_string(x)) != one_line(as_string(build(parsed_data))):
+                    print '[%s] problem on %s' % (f, x)
+            except AttributeError:
+                print 'INVALID:', f, x
