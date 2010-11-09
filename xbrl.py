@@ -3,6 +3,7 @@ from pprint import pprint
 import xml.etree.ElementTree as etree
 import re
 import sys
+import StringIO
 
 def parse_xmlns(file):
     events = "start", "start-ns"
@@ -210,13 +211,21 @@ class Builder(object):
             end = etree.SubElement(period, 'xbrli:endDate')
             end.text = edict['period']['value'][1]
         return root
-
-
+    
 def parse(entity, p = Parser()):
     return p.parse(entity)
 
 def build(entity, b = Builder()):
     return b.build(entity)
+
+
+def as_string(element):
+    buf = StringIO.StringIO()
+    etree.ElementTree(element).write(buf)
+    return buf.getvalue()
+
+def one_line(lines):
+    return ''.join([x.strip() for x in lines.splitlines()])
 
 if __name__ == '__main__':
     xmls = parse_directory('isdr/*')
@@ -224,10 +233,7 @@ if __name__ == '__main__':
     for x in xmls['isdr\\isdr-20100630.xml'].getroot():
         try:
             parsed_data = parse(x)
-            print etree.ElementTree(x).write(sys.stdout)
-            print etree.ElementTree(build(parsed_data)).write(sys.stdout)
+            print one_line(as_string(x))
+            print one_line(as_string(build(parsed_data)))
         except AttributeError:
             pass
-    
-
-    #etree.ElementTree(root).write(sys.stdout)
