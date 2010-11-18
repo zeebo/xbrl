@@ -156,6 +156,59 @@ class Parser(object):
         
         return self.parse_ns(entity, edict['ns'])
     
+    def parse_labelLink(self, entity):
+        def parse_loc(entity):
+            #<link:loc xlink:type="locator" xlink:href="http://taxonomies.xbrl.us/us-gaap/2009/non-gaap/dei-2009-01-31.xsd#dei_DocumentType" xlink:label="DocumentType" xlink:title="DocumentType"/>
+            return {
+                'type': 'loc',
+                'href': entity.attrib['xlink:href'],
+                'label': entity.attrib['xlink:label'],
+                'title': entity.attrib['xlink:title'],
+            }
+        
+        def parse_label(entity):
+            #<link:label xlink:type="resource" xlink:label="label_DocumentType" xlink:role="http://www.xbrl.org/2003/role/label" xlink:title="label_DocumentType" xml:lang="en" id="label_DocumentType">Document Type</link:label>
+            return {
+                'type': 'label',
+                'label': entity.attrib['xlink:label'],
+                'role': entity.attrib['xlink:role'],
+                'title': entity.attrib['xlink:title'],
+                'lang': entity.attrib['{http://www.w3.org/XML/1998/namespace}lang'],
+                'id': entity.attrib['id'],
+                'text': entity.text,
+            }    
+        
+        def parse_labelArc(entity):
+            #<link:labelArc xlink:type="arc" xlink:arcrole="http://www.xbrl.org/2003/arcrole/concept-label" xlink:from="DocumentType" xlink:to="label_DocumentType" xlink:title="label: DocumentType to label_DocumentType"/>
+            return {
+                'type': 'labelArc',
+                'arcrole': entity.attrib['xlink:arcrole'],
+                'from': entity.attrib['xlink:from'],
+                'to': entity.attrib['xlink:to'],
+                'title': entity.attrib['xlink:title'],
+            }
+        
+        p_funcs = {
+            'loc': parse_loc,
+            'label': parse_label,
+            'labelArc': parse_labelArc,
+        }
+
+        parsed = {
+            'type': 'labelLink',
+            'labelLink_type': entity.attrib['xlink:type'],
+            'role': entity.attrib['xlink:role'],
+            'locs': [],
+            'labels': [],
+            'labelArcs': [],
+        }
+        for child in entity:
+            tags = dict_tag(child.tag)
+            key = '%ss' % tags['type']
+            parsed[key].append(p_funcs[tags['type']](child))
+
+        return parsed
+
     def parse_ns(self, entity, ns):
         good_ns = ['us-gaap', 'dei']
 
@@ -243,6 +296,11 @@ class Builder(object):
             if attrib not in exclude:
                 root.set(attrib, edict[attrib])
         root.text = edict['text']
+        return root
+    
+    def build_labelLink(self, edict):
+        #<link:labelLink xlink:type="extended" xlink:role="http://www.xbrl.org/2003/role/link">
+        root = etree.Element('link:labelLink')
         return root
     
     def build_unit(self, edict):
